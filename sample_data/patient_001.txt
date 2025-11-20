@@ -1,0 +1,5 @@
+Patient: 001
+Age: 58
+History: Hypertension, Type 2 diabetes
+Chief complaint: Chest pain for 2 days
+Notes: Patient reports pressure like chest pain with exertion. EKG performed was non specific. Troponin levels within normal range. Started on aspirin and nitroglycerin. Recommend cardiology follow up.

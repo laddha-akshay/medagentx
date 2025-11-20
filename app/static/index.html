@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset='utf-8' />
+  <title>MedAgentX Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .btn { padding: 8px 12px; border: 0; background: #2563eb; color: white; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>MedAgentX - Demo</h2>
+  <p>Upload synthetic patient notes then ask clinical questions.</p>
+  <div>
+    <input id="file" type="file"/>
+    <button class="btn" onclick="upload()">Upload</button>
+    <div id="uploadStatus"></div>
+  </div>
+  <hr/>
+  <div>
+    <input id="q" type="text" placeholder="Enter question"/>
+    <button class="btn" onclick="ask()">Ask</button>
+  </div>
+  <h3>Answer</h3>
+  <pre id="answer"></pre>
+  <h3>Hits</h3>
+  <pre id="hits"></pre>
+  <script>
+  async function upload(){
+    const f = document.getElementById('file').files[0];
+    if(!f){ alert('select a file'); return; }
+    const fd = new FormData();
+    fd.append('file', f);
+    document.getElementById('uploadStatus').innerText = 'Uploading...';
+    const res = await fetch('/upload-notes', { method: 'POST', body: fd });
+    const j = await res.json();
+    document.getElementById('uploadStatus').innerText = 'Done. ' + JSON.stringify(j);
+  }
+  async function ask(){
+    const q = document.getElementById('q').value;
+    if(!q){ alert('enter a question'); return; }
+    const res = await fetch('/query?q=' + encodeURIComponent(q));
+    const j = await res.json();
+    document.getElementById('answer').innerText = JSON.stringify(j.answer, null, 2);
+    document.getElementById('hits').innerText = JSON.stringify(j.hits, null, 2);
+  }
+  </script>
+</body>
+</html>

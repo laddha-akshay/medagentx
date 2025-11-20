@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+*.bin
+*.pkl
+faiss_index.bin
+med_faiss_index.bin
+transformers_cache/
+sentence_transformers/
+models/
+.env
+.DS_Store
+.ipynb_checkpoints/
