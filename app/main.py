@@ -32,6 +32,16 @@ async def upload_notes(file: UploadFile = File(...)):
 def query(q: str = Query(...)):
     qv = embedder.embed_texts([q]).astype('float32')
     hits = indexer.search(qv, k=5)
+    if hits:
+        seen = set()
+        dedup = []
+        for h in hits:
+            hid = h.get('id')
+            if hid in seen:
+                continue
+            seen.add(hid)
+            dedup.append(h)
+        hits = dedup
     answer = answer_clinical(q, hits)
     return JSONResponse({'answer': answer.dict(), 'hits': hits})
 @app.get('/')

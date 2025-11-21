@@ -22,9 +22,18 @@ class FaissIndexer:
             with open(META_PATH, 'rb') as f:
                 self.metadata = pickle.load(f)
     def search(self, qvec, k=5):
+        if getattr(self.index, 'ntotal', 0) == 0:
+            return []
+        k = min(k, getattr(self.index, 'ntotal', 0))
         D, I = self.index.search(qvec, k)
         results = []
         for row in I:
+            seen = set()
             for idx in row:
+                if idx < 0 or idx >= len(self.metadata):
+                    continue
+                if idx in seen:
+                    continue
+                seen.add(idx)
                 results.append(self.metadata[idx])
         return results

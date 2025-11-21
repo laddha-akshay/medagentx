@@ -27,7 +27,16 @@ Question: {question}
 Return only valid JSON parsable into the schema summary string, findings list of short strings, suggested_next_steps list of short strings, confidence float."""
     return prompt
 def answer_clinical(question: str, notes: List[dict]):
-    texts = [n.get('text', '') for n in notes]
+    uniq = []
+    seen_ids = set()
+    for n in notes:
+        nid = n.get('id')
+        if nid is not None:
+            if nid in seen_ids:
+                continue
+            seen_ids.add(nid)
+        uniq.append(n.get('text', ''))
+    texts = uniq
     prompt = build_prompt(texts, question)
     if openai and OPENAI_KEY:
         resp = openai.ChatCompletion.create(

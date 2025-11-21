@@ -1,49 +1,226 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset='utf-8' />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MedAgentX Demo</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 24px; }
-    .btn { padding: 8px 12px; border: 0; background: #2563eb; color: white; border-radius: 6px; cursor: pointer; }
+    :root { color-scheme: light dark; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial; margin: 0; background: #0b1220; color: #e5e7eb; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .btn { padding: 10px 14px; border: 0; background: #2563eb; color: white; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn.secondary { background: #374151; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .input, .textarea { width: 100%; background: #0b1220; color: #e5e7eb; border: 1px solid #374151; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+    .textarea { min-height: 92px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .title { font-size: 24px; font-weight: 700; }
+    .sub { color: #9ca3af; }
+    .upload { display: grid; gap: 10px; }
+    .drop { border: 2px dashed #374151; border-radius: 12px; padding: 18px; text-align: center; background: #0b1220; }
+    .status { font-size: 13px; color: #9ca3af; }
+    .pill { display: inline-block; padding: 4px 8px; font-size: 12px; border-radius: 999px; background: #1f2937; color: #93c5fd; margin-right: 6px; }
+    .section-title { font-weight: 700; margin: 12px 0 8px; }
+    .list { display: grid; gap: 8px; }
+    .hit { background: #0b1220; border: 1px solid #1f2937; border-radius: 10px; padding: 10px; }
+    .hit-head { display: flex; justify-content: space-between; align-items: center; }
+    .hit-id { font-weight: 600; color: #93c5fd; }
+    .code { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; background: #0b1220; border: 1px solid #1f2937; border-radius: 8px; padding: 8px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .footer { margin-top: 16px; font-size: 12px; color: #6b7280; }
   </style>
 </head>
 <body>
-  <h2>MedAgentX - Demo</h2>
-  <p>Upload synthetic patient notes then ask clinical questions.</p>
-  <div>
-    <input id="file" type="file"/>
-    <button class="btn" onclick="upload()">Upload</button>
-    <div id="uploadStatus"></div>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title">MedAgentX</div>
+        <div class="sub">Upload synthetic patient notes and ask clinical questions</div>
+      </div>
+      <div>
+        <button class="btn secondary" id="viewRawBtn" onclick="toggleRaw()">View Raw JSON</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <div class="section-title">Upload Notes</div>
+        <div class="upload">
+          <input id="file" type="file" multiple accept=".txt" class="input" />
+          <div id="drop" class="drop">Drag and drop .txt files here</div>
+          <div>
+            <button class="btn" id="uploadBtn" onclick="upload()">Upload Selected Files</button>
+            <span id="uploadStatus" class="status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Ask a Question</div>
+        <textarea id="q" class="textarea" placeholder="What are possible causes and next steps?"></textarea>
+        <div style="margin-top:10px; display:flex; gap:10px;">
+          <button class="btn" id="askBtn" onclick="ask()">Ask</button>
+          <button class="btn secondary" onclick="copyAnswer()">Copy Answer</button>
+        </div>
+        <div id="askStatus" class="status" style="margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:16px;">
+      <div class="card">
+        <div class="section-title">Answer</div>
+        <div id="answerCard" class="list"></div>
+        <div id="answerRaw" class="code" style="display:none;"></div>
+      </div>
+      <div class="card">
+        <div class="section-title">Retrieved Notes</div>
+        <div id="hitsCount" class="status"></div>
+        <div id="hitsList" class="list"></div>
+        <div id="hitsRaw" class="code" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="footer">Works with or without OPENAI_API_KEY</div>
   </div>
-  <hr/>
-  <div>
-    <input id="q" type="text" placeholder="Enter question"/>
-    <button class="btn" onclick="ask()">Ask</button>
-  </div>
-  <h3>Answer</h3>
-  <pre id="answer"></pre>
-  <h3>Hits</h3>
-  <pre id="hits"></pre>
+
   <script>
-  async function upload(){
-    const f = document.getElementById('file').files[0];
-    if(!f){ alert('select a file'); return; }
-    const fd = new FormData();
-    fd.append('file', f);
-    document.getElementById('uploadStatus').innerText = 'Uploading...';
-    const res = await fetch('/upload-notes', { method: 'POST', body: fd });
-    const j = await res.json();
-    document.getElementById('uploadStatus').innerText = 'Done. ' + JSON.stringify(j);
-  }
-  async function ask(){
-    const q = document.getElementById('q').value;
-    if(!q){ alert('enter a question'); return; }
-    const res = await fetch('/query?q=' + encodeURIComponent(q));
-    const j = await res.json();
-    document.getElementById('answer').innerText = JSON.stringify(j.answer, null, 2);
-    document.getElementById('hits').innerText = JSON.stringify(j.hits, null, 2);
-  }
+    let showRaw = false
+
+    function toggleRaw(){
+      showRaw = !showRaw
+      document.getElementById('viewRawBtn').innerText = showRaw ? 'Hide Raw JSON' : 'View Raw JSON'
+      document.getElementById('answerRaw').style.display = showRaw ? 'block' : 'none'
+      document.getElementById('hitsRaw').style.display = showRaw ? 'block' : 'none'
+    }
+
+    function setBusy(el, busy){ el.disabled = !!busy }
+
+    function truncate(t, n){ return t.length > n ? t.slice(0, n) + '…' : t }
+
+    async function upload(){
+      const input = document.getElementById('file')
+      const files = Array.from(input.files || [])
+      const dropFiles = Array.from((window._dropFiles || []))
+      const all = files.concat(dropFiles)
+      if(all.length === 0){ alert('Select or drop .txt files'); return }
+      setBusy(document.getElementById('uploadBtn'), true)
+      document.getElementById('uploadStatus').innerText = 'Uploading ' + all.length + ' file(s)…'
+      let ok = 0
+      for(const f of all){
+        const fd = new FormData()
+        fd.append('file', f)
+        try {
+          const res = await fetch('/upload-notes', { method: 'POST', body: fd })
+          const j = await res.json()
+          if(j && j.status === 'ok') ok += (j.count || 0)
+        } catch(e) {}
+      }
+      document.getElementById('uploadStatus').innerText = 'Indexed ' + ok + ' note(s)'
+      window._dropFiles = []
+      setBusy(document.getElementById('uploadBtn'), false)
+    }
+
+    async function ask(){
+      const q = document.getElementById('q').value.trim()
+      if(!q){ alert('Enter a question'); return }
+      setBusy(document.getElementById('askBtn'), true)
+      document.getElementById('askStatus').innerText = 'Thinking…'
+      try {
+        const res = await fetch('/query?q=' + encodeURIComponent(q))
+        const j = await res.json()
+        renderAnswer(j.answer)
+        renderHits(j.hits)
+        document.getElementById('answerRaw').innerText = JSON.stringify(j.answer, null, 2)
+        document.getElementById('hitsRaw').innerText = JSON.stringify(j.hits, null, 2)
+        document.getElementById('askStatus').innerText = ''
+      } catch(e){
+        document.getElementById('askStatus').innerText = 'Error'
+      }
+      setBusy(document.getElementById('askBtn'), false)
+    }
+
+    function renderAnswer(a){
+      const box = document.getElementById('answerCard')
+      box.innerHTML = ''
+      const summary = document.createElement('div')
+      summary.className = 'card'
+      summary.innerHTML = '<div class="section-title">Summary</div><div>' + (a && a.summary ? a.summary : '') + '</div>'
+      box.appendChild(summary)
+
+      const grid = document.createElement('div')
+      grid.className = 'grid'
+      const findings = document.createElement('div')
+      findings.className = 'card'
+      findings.innerHTML = '<div class="section-title">Findings</div>' + listHtml(a && a.findings ? a.findings : [])
+      const steps = document.createElement('div')
+      steps.className = 'card'
+      steps.innerHTML = '<div class="section-title">Next Steps</div>' + listHtml(a && a.suggested_next_steps ? a.suggested_next_steps : [])
+      grid.appendChild(findings)
+      grid.appendChild(steps)
+      box.appendChild(grid)
+
+      const conf = document.createElement('div')
+      conf.className = 'card'
+      const c = typeof a?.confidence === 'number' ? Math.max(0, Math.min(1, a.confidence)) : 0
+      const pct = Math.round(c * 100)
+      conf.innerHTML = '<div class="section-title">Confidence</div><div class="pill">' + pct + '%</div>'
+      box.appendChild(conf)
+    }
+
+    function listHtml(items){
+      if(!items || items.length === 0) return '<div class="status">None</div>'
+      return '<ul style="margin:0; padding-left:18px;">' + items.map(x => '<li>' + x + '</li>').join('') + '</ul>'
+    }
+
+    function renderHits(hits){
+      const box = document.getElementById('hitsList')
+      const cnt = document.getElementById('hitsCount')
+      cnt.innerText = (hits && hits.length ? hits.length : 0) + ' note(s)'
+      box.innerHTML = ''
+      ;(hits || []).forEach((h, i) => {
+        const div = document.createElement('div')
+        div.className = 'hit'
+        const head = document.createElement('div')
+        head.className = 'hit-head'
+        const left = document.createElement('div')
+        left.className = 'hit-id'
+        left.innerText = h?.id || 'unknown'
+        const btn = document.createElement('button')
+        btn.className = 'btn secondary'
+        btn.innerText = 'Preview'
+        const pre = document.createElement('pre')
+        pre.className = 'code'
+        pre.style.display = 'none'
+        pre.innerText = h?.text || ''
+        btn.onclick = () => { pre.style.display = pre.style.display === 'none' ? 'block' : 'none' }
+        head.appendChild(left)
+        head.appendChild(btn)
+        div.appendChild(head)
+        const snippet = document.createElement('div')
+        snippet.className = 'status'
+        snippet.innerText = truncate(h?.text || '', 160)
+        div.appendChild(snippet)
+        div.appendChild(pre)
+        box.appendChild(div)
+      })
+    }
+
+    function copyAnswer(){
+      const raw = document.getElementById('answerRaw').innerText
+      const text = raw || ''
+      navigator.clipboard.writeText(text)
+    }
+
+    const drop = document.getElementById('drop')
+    drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#93c5fd' })
+    drop.addEventListener('dragleave', e => { drop.style.borderColor = '#374151' })
+    drop.addEventListener('drop', e => {
+      e.preventDefault()
+      drop.style.borderColor = '#374151'
+      window._dropFiles = Array.from(e.dataTransfer.files || [])
+      document.getElementById('uploadStatus').innerText = (window._dropFiles.length || 0) + ' file(s) ready'
+    })
   </script>
 </body>
 </html>
